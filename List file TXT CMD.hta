@@ -1,0 +1,254 @@
+<TITLE>Text File and NT Command Script Lister</TITLE>
+<HTA:APPLICATION ID='ListTxtCmd'
+  Scroll='No'
+  SCROLLFLAT ='No'
+  SingleInstance='Yes'
+  SysMenu='Yes'
+  ShowInTaskBar='No'
+  MaximizeButton='No'
+  MinimizeButton='Yes'
+  Border='Thin'
+  BORDERSTYLE ='complex'
+  INNERBORDER ='Yes'
+  Caption='Yes'
+  WindowState='Normal'
+  APPLICATIONNAME='List_Txt_Cmd_Files'
+  Icon='%SystemRoot%\explorer.exe'>
+<STYLE Type="text/css">
+  Body
+    {
+    Font-Size:8.05pt;
+    Font-Weight:Bold;
+    Font-Family:Arial,Tahoma,Comic Sans MS,Segoe Ui;
+    Color:#001254;
+    BackGround-Color:Transparent;
+    Filter:progid:DXImageTransform.Microsoft.Gradient
+      (StartColorStr='#fdf7f1',endColorStr='#d1cbc5');
+    Margin-Top:1;
+    Margin-Bottom:1;
+    Margin-Left:4;
+    Margin-Right:4;
+    Padding-Top:1;
+    Padding-Bottom:1;
+    Padding-Left:4;
+    Padding-Right:4;
+    Text-Align:Center;
+    Vertical-Align:Top;
+    Border-Top:2px Solid #a6a29e;
+    Border-Bottom:3px Solid #cbc7c3;
+    Border-Left:2px Solid #b2aeaa;
+    Border-Right:3px Solid #bcb8b4;
+    }
+  BUTTON
+    {
+    Width:121pt;
+    Height:15;
+    Cursor:Hand;
+    Font-Size:8.05pt;
+    Font-Weight:Bold;
+    Font-Family:Arial,Tahoma,Comic Sans MS,Segoe Ui;
+    Color:#001142;
+    Filter:progid:DXImageTransform.Microsoft.Gradient
+      (StartColorSTR='#bbddff',endColorSTR='#224488');
+    Padding-Top:1;
+    Padding-Bottom:2;
+    Margin-Left:1pt;
+    Margin-Right:1pt;
+    Border-Top:1px TransParent;
+    Border-Bottom:2px TransParent;
+    Border-Left:1px TransParent;
+    Border-Right:2px TransParent;
+    }
+  TD
+    {
+    Font-Size:7.95pt;
+    Font-Weight:Bold;
+    Color:#5E5E5E;
+    Text-Align:Center;
+    Margin-Top:1;
+    Margin-Bottom:1;
+    }
+</STYLE>
+<script language="VBScript">
+  window.resizeTo 800,625
+  Const WINDOW_HANDLE = 0 ,OPTIONS = 0,MY_COMPUTER = &H11&
+  Dim Computer :Computer = "."
+  Dim Shell    :Set Shell = CreateObject("Shell.Application")
+  Dim Act      :Set Act = CreateObject("Wscript.Shell")
+  Dim Fso      :Set Fso = CreateObject("Scripting.FileSystemObject")
+  Dim Wmi      :Set Wmi = GetObject("winmgmts:\\" & Computer & "\root\cimv2")
+  Dim strFolderName
+  '-> Single Directory
+  Function DirectoryList
+    Dim Folder, FolderItem, ObjPath
+    Set Folder = Shell.BrowseForFolder(0, "Select a folder:", 0, MY_COMPUTER)
+    If Folder Is Nothing Then
+      Exit Function
+    Else
+      Set FolderItem = Folder.Self
+      ObjPath = FolderItem.Path
+      UpdateList()
+      Set colFiles = Wmi.ExecQuery _
+        ("ASSOCIATORS OF {Win32_Directory.Name='" & ObjPath & "'} Where " _
+          & "ResultClass = CIM_DataFile")
+      For Each objFile In colFiles
+        If Right(Instr(objFile.Name,".txt"),4) Or Right(Instr(objFile.Name,".cmd"),4) Then
+          C1 = C1 + 1
+          Set objOption = Document.createElement("OPTION")
+          objOption.Text = objFile.FileName
+          objOption.Value = objFile.Name
+          If C1 Mod 2 Then
+            objOption.style.backgroundcolor = "#C9C9C9"
+            objOption.style.color = "#3A3A3A"
+          Else
+            objOption.style.backgroundcolor = "#E9E9E9"
+            objOption.style.color = "#235779"
+          End If
+          TxtFile.Add(objOption)
+        End If
+      Next
+    End If
+    C1=0
+    Exit Function
+  End Function
+  '-> Folder And Sub Folders
+  Function FolderSubFolderListAll()
+    Dim colSubfolders, Folder, FolderItem, ObjPath
+    Set Folder = Shell.BrowseForFolder(0, "Select a folder:", 0, MY_COMPUTER)
+    If Folder Is Nothing Then
+      Exit Function
+    Else
+      Set FolderItem = Folder.Self
+      strFolderName = FolderItem.Path
+      UpdateList()
+      Set colSubfolders = Wmi.ExecQuery _
+        ("Associators of {Win32_Directory.Name='" & strFolderName & "'} " _
+          & "Where AssocClass = Win32_Subdirectory " _
+            & "ResultRole = PartComponent")
+      Set colFiles = Wmi.ExecQuery _
+        ("ASSOCIATORS OF {Win32_Directory.Name='" & strFolderName & "'} Where " _
+          & "ResultClass = CIM_DataFile")
+      For Each objFile in colFiles
+        If Right(Instr(objFile.Name,".txt"),4) Or Right(Instr(objFile.Name,".cmd"),4) Then
+          C1 = C1 + 1
+          Set objOption = Document.createElement("OPTION")
+          objOption.Text = objFile.FileName
+          objOption.Value = objFile.Name
+          If C1 Mod 2 Then
+            objOption.style.backgroundcolor = "#C9C9C9"
+            objOption.style.color = "#3A3A3A"
+          Else
+            objOption.style.backgroundcolor = "#E9E9E9"
+            objOption.style.color = "#235779"
+          End If
+          TxtFile.Add(objOption)
+        End If
+      Next
+      C1=0
+      For Each objFolder in colSubfolders
+        GetSubFolders strFolderName
+      Next
+    End If
+    Exit Function
+  End Function
+  '-> Sub Folders
+  Sub GetSubFolders(strFolderName)
+    On Error Resume Next
+    Set colSubfolders2 = Wmi.ExecQuery _
+      ("Associators of {Win32_Directory.Name='" & strFolderName & "'} " _
+        & "Where AssocClass = Win32_Subdirectory " _
+          & "ResultRole = PartComponent")
+    For Each objFolder2 in colSubfolders2
+      strFolderName = objFolder2.Name
+      Set colFiles =  Wmi.ExecQuery _
+        ("ASSOCIATORS OF {Win32_Directory.Name='" & strFolderName & "'} Where " _
+          & "ResultClass = CIM_DataFile")
+      For Each objFile in colFiles
+        If Right(Instr(objFile.Name,".txt"),4) Or Right(Instr(objFile.Name,".cmd"),4) Then
+          C1 = C1 + 1
+          Set objOption = Document.createElement("OPTION")
+          objOption.Text = objFile.FileName
+          objOption.Value = objFile.Name
+          If C1 Mod 2 Then
+            objOption.style.backgroundcolor = "#C9C9C9"
+            objOption.style.color = "#3A3A3A"
+          Else
+            objOption.style.backgroundcolor = "#E9E9E9"
+            objOption.style.color = "#235779"
+          End If
+          TxtFile.Add(objOption)
+        End If
+      Next
+      GetSubFolders strFolderName
+    Next
+  End Sub
+  '-> All Cmd And Text From Local Computer
+  Function ListAll()
+    UpdateList()
+    Set ColFiles = Wmi.ExecQuery("Select * from CIM_DataFile Where Extension = 'txt' Or Extension = 'cmd'")
+    For Each objFile In colFiles
+      C1 = C1 + 1
+      Set objOption = Document.createElement("OPTION")
+      objOption.Text = objFile.FileName
+      objOption.Value = objFile.Name
+      If C1 Mod 2 Then
+        objOption.style.backgroundcolor = "#C9C9C9"
+        objOption.style.color = "#3A3A3A"
+      Else
+        objOption.style.backgroundcolor = "#E9E9E9"
+        objOption.style.color = "#235779"
+      End If
+      TxtFile.Add(objOption)
+    Next
+    Exit Function
+  End Function
+  '-> Select From List
+  Function ReadFile()
+    On Error Resume Next
+    Set objFile = Fso.OpenTextFile(TxtFile.Value)
+    strContents = objFile.ReadAll
+    objFile.Close
+    Contents.Value = strContents
+    Path.innerHTML=TxtFile.Value
+    Exit Function
+  End Function
+  Function UpdateList()
+    For Each ObjList In TxtFile.Options :ObjList.RemoveNode :Next
+    Exit Function
+  End Function
+</SCRIPT>
+<BODY>Gunsmokingman List And Show Txt and Cmd Files
+  <TABLE Border='1' Align='Center'>
+    <!-- -->
+    <TD>
+      <BUTTON OnClick='DirectoryList()'>Single Directory</BUTTON>
+    </TD>
+    <!-- -->
+    <TD>
+      <BUTTON OnClick='FolderSubFolderListAll()'>Folder And Sub Folder</BUTTON>
+    </TD>
+    <!-- -->
+    <TD>
+      <BUTTON OnClick='ListAll()'>Local Computer</BUTTON>
+    </TD>
+  </TABLE>
+  <TABLE width="100%" Border='1'>
+    <TR>
+      <TD width="25%" valign="top">
+        <select size="35" name="TxtFile" onChange="ReadFile()"
+          style="Width:100%;Font-Family:Arial,Tahoma,Comic Sans MS,Segoe Ui;Font-Size:7.95pt;Font-Weight:Bold;">
+        </select>
+      </TD>
+      <TD width="75%" valign="top">
+        <textarea name="Contents" rows="35" cols="100"
+          Style='Width:100%;Font-Family:Arial,Tahoma,Comic Sans MS,Segoe Ui;Font-Size:7.95pt;'
+          ReadOnly>
+        </textarea>
+      </TD>
+    </TR>
+  </TABLE>
+  <SPAN ID='Path'> </SPAN>
+  <DIV Style='Color:#Ad1111;Margin-Top:5;'>
+    This may appear to not be responding, while the query is active!
+  </DIV>
+</BODY>
