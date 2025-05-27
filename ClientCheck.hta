@@ -1,0 +1,428 @@
+<html>
+<!--------------------------------------------------------------------
+ClientCheck.hta
+Written by Jeff Fellinge, 2003.
+--------------------------------------------------------------------->
+
+<HTA:APPLICATION 
+     ID="ClientCheck" 
+     APPLICATIONNAME="Client Diagnostic Tool"
+     SCROLL="no"
+     SINGLEINSTANCE="yes"
+     WINDOWSTATE="normal"
+     BORDER="thick"
+     BORDERSTYLE="normal"
+     MAXIMIZEBUTTON="yes"
+     MINIMIZEBUTTON="yes"
+	 INNERBORDER="yes"
+     SYSMENU="yes" />
+<head>
+<title>Check Client: a Local Diagnostic Tool</title>
+
+<style>
+body
+{background-color:#e8e8e8; font-family:Arial; font-size: 8pt;
+margin-top:5px; margin-left:5px; margin-right:5px; margin-bottom:5px;}
+.tbox
+{font-family:Arial; font-size:8pt; width:25px;}
+.button
+{font-family:Arial; font-size:8pt; width:35px;}
+.table
+{font-family:Arial; font-size:8pt;}
+#output
+{font-family:Arial; font-size: 8pt;}
+#update
+{font-family: Arial; font-size: 10pt;color="Red";}
+</style>
+
+<script type="text/vbscript">
+Option Explicit
+
+public g_strTemp
+
+'---------------------------------------------------------------------
+' Initialize the Application 
+'---------------------------------------------------------------------
+Sub Window_Onload
+	Dim iReturn
+	Dim objFSO
+	Dim objShell
+	Dim objLocator
+	Dim strHTML
+	window.ResizeTo 640,480
+	cmdRun.disabled = False
+	cmdSave.disabled = True
+
+	On Error Resume Next	
+	Set objLocator = CreateObject("WbemScripting.SWbemLocator")
+	If Err <> 0 Then 
+		strHTML=Heading("The WMI Core Components do not " &_
+		"appear to be installed.","Red") & " As a result, both " &_
+		"the PC Check and Process Check have been disabled. <br><br>"
+		strHTML=strHTML & "<i>To run diagnostics, please download " &_
+		"and install the core WMI services for Windows.<br>" &_
+		"Download these files from Microsoft <a href=" & chr(34) &_
+	    "http://msdn.microsoft.com/library/default.asp?url" &_
+	    "=/downloads/list/wmi.asp" & chr(34) & ">here</a>." &_
+	    "</i><br><br>"
+		output.innerHTML= strHTML 
+		chkPC.checked=False
+		chkPC.disabled=True
+		chkProcess.checked=False
+		chkProcess.disabled=True			
+	End If
+	On Error Goto 0
+	Set objShell=CreateObject ("WScript.Shell")
+	g_strTemp=objShell.ExpandEnvironmentStrings("%temp%") &_
+	 "/tempdiagnostics.txt"
+End Sub
+
+'---------------------------------------------------------------------
+' Run the diagnostics 
+'---------------------------------------------------------------------
+Sub PerformDiagnostics
+	cmdQuit.disabled=True	
+	cmdSave.disabled=True	
+	cmdRun.disabled=True	
+	output.innerHTML="Client Diagnostics Tool."
+	If chkPC.checked = true Then DoPCCheck()
+	If chkProcess.checked = true Then DoProcessCheck()
+	If chkNet.checked = true Then DoNetworkCheck()
+	cmdSave.disabled = False
+	update.innerHTML="Checks complete. Click Save to save results " &_
+	 "to a text file."
+	cmdQuit.disabled=False
+	cmdSave.disabled=False
+	cmdRun.disabled=False
+
+End Sub
+
+'---------------------------------------------------------------------
+' Run PC Check
+'---------------------------------------------------------------------
+Sub DoPCCheck()
+	Dim objLocator, objServices 
+	Dim colService, colQueryResult
+	Dim objItem, objShell
+	Dim strWQL, strHTML
+	Dim iFreeSpace
+	update.innerHTML="Running PC Check.<hr/>"
+	strHTML=Heading("Local Computer Information","Green") 
+	On Error Resume Next
+	Set objLocator = CreateObject("WbemScripting.SWbemLocator")
+	Set objServices = objLocator.ConnectServer(".")
+
+	strWQL="Select * from Win32_OperatingSystem"
+	Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHTML=strHTML & "<br><b>Operating System</b><br>"
+	For Each objItem In colQueryResult
+		strHTML=strHTML &_
+		"Operating System: <i>" & objItem.Caption & "</i><br>" &_
+		"OS Version: <i>" &  objItem.Version & "</i><br>" &_
+		"Service Pack Installed: SP <i>" &_
+		objItem.ServicePackMajorVersion & "." &_
+		objItem.ServicePackMinorVersion & "</i><br>"
+	Next
+
+	strWQL="Select * from Win32_BIOS"
+	Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHtml=strHTML & "<br><b>BIOS Information</b><br>"
+	For Each objItem In colQueryResult
+		strHTML=strHTML &_
+		 "Bios: <i>" & objItem.Description & "</i><br>"
+	Next
+
+	strWQL="Select * from Win32_ComputerSystem"
+	Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHtml=strHTML & "<br><b>Computer System Information</b><br>"
+	For Each objItem In colQueryResult
+		strHTML=strHTML &_
+		 "Current User: <i>" & objItem.UserName & "</i><br>" &_
+		 "Computer Name: <i>" & objItem.Name & "</i><br>" &_
+		 "Make and Model: <i>" & objItem.Manufacturer & " " &_
+		 objItem.Model & "</i><br> Total Physical Memory <i>" &_
+		FormatNumber((objItem.TotalPhysicalMemory/1024)/1024,0)&_
+		" </i>MB<br>"
+    Next
+
+	strWQL="Select * from Win32_Processor"
+    Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHtml=strHTML & "<br><b>Processor Information</b><br>"
+    For Each objItem In colQueryResult
+		strHTML=strHTML &_
+		 "Processor: <i>" & objItem.Name & "</i><br>" &_
+		 "ClockSpeed: <i>" & objItem.MaxClockSpeed & " </i>Mhz<br>" &_
+		 "Percent Loaded: <i>" & objItem.LoadPercentage & "</i><br>"
+    Next
+
+	strWQL="Select * from Win32_LogicalDisk"
+    Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHTML=strHTML &_
+	 Heading("Storage Information","Green") &_
+	 "<table Border=1 class=table width=600px>" &_
+	 "<tr style='FONT-WEIGHT: bold'><td>Drive</td><td>" &_
+	 "Free Space</td><td>Description</td></tr>" 
+
+	For Each objItem In colQueryResult
+		If Not IsNull(objItem.FreeSpace) Then
+		  iFreeSpace=(objItem.FreeSpace / 1024)/1024
+		Else iFreeSpace=0
+		End If
+		strHTML=strHTML &  "<tr>" &_
+		  "<td>" & objItem.Caption & "</td>" &_
+		  "<td>" & FormatNumber(iFreeSpace,2) & " MB free</td>" &_
+		  "<td>" & objItem.Description & "</td>" &_
+		  "</tr>"
+	Next
+	strHTML=strHTML & "</table><br>"
+	
+	output.innerHTML=output.innerHTML & strHTML
+	On Error Goto 0
+End Sub
+
+'---------------------------------------------------------------------
+' Run Process Check
+'---------------------------------------------------------------------
+Sub DoProcessCheck()
+	Dim strHTML, strCmdLine, strWQL
+	Dim objLocator, objServices, objItem
+	Dim colQueryResult, strFlagApp
+	Dim bFlagApp
+	Dim iPageFaults, iWSS, iPWSS
+
+'	On Error Resume Next	
+	Set objLocator = CreateObject("WbemScripting.SWbemLocator")
+	Set objServices = objLocator.ConnectServer(".")
+	update.innerHTML="Processes.<hr/>"
+	strHTML=Heading("Current Processes","Green")  
+    strFlagApp="Flagged Applications:<br>" 
+	bFlagApp=FALSE
+	strWQL="Select * from Win32_Process"
+	Set colQueryResult = objServices.ExecQuery(strWQL)
+	strHTML=strHTML & "<table class=table width=600px border=1>" &_
+	 "<tr style=" & chr(34) & "FONT-WEIGHT: bold" & chr(34) &_
+	 "><td>Process</td><td>Command Line</td><td>Memory (KB)</td>" &_
+	 "<td>Peak Mem(KB)</td><td>Page Faults</td></tr>"  
+	For Each objItem In colQueryResult
+		If IsNull(objItem.CommandLine) Then
+			strCmdLine="n/a"
+		Else strCmdLine=objItem.CommandLine
+		End If
+		If IsNumeric(objItem.WorkingSetSize) Then
+			iWSS=(objItem.WorkingSetSize / 1024)
+		Else iWSS=-1
+		End If
+		If IsNumeric(objItem.PeakWorkingSetSize) Then
+			iPWSS=(objItem.PeakWorkingSetSize / 1024)
+		Else iPWSS=-1
+		End If
+		If IsNumeric(objItem.PageFaults) Then
+		iPageFaults=objItem.PageFaults
+		Else iPageFaults=-1
+		End If
+		Select Case objItem.Description
+			Case "mshta.exe"
+				bFlagApp = TRUE
+				strHTML=strHTML & "<tr style='COLOR: RED'>"
+				strFlagApp=strFlagApp+objItem.Description & "<br>"
+			Case Else
+			strHTML=strHTML & "<tr>"				
+		End Select
+		
+		strHTML=strHTML & "<td>" & objItem.Description & "</td>" &_
+		 "<td>" & strCmdLine & "</td>" &_
+		 "<td align=right>" & FormatNumber(iWSS,0) & "</td>" &_
+		 "<td align=right>" & FormatNumber(iPWSS,0) &"</td>" &_
+		 "<td align=right>" & FormatNumber(iPageFaults,0) & "</td>" &_
+		 "</tr>"
+	Next
+	strHTML=strHTML & "</table><br>"
+
+	If bFlagApp Then strHTML=strHTML & strFlagApp
+
+	output.innerHTML=output.innerHTML & strHTML
+End Sub
+
+'---------------------------------------------------------------------
+' DoNetworkCheck
+'---------------------------------------------------------------------
+Sub DoNetworkCheck()
+	Dim bNetworkUp
+	Dim iReturn
+	Dim objShell, objFSO
+	Dim strHTML, strPingAddress, strTRAddress
+
+	If txtIP1.Value > 223 or txtIP2.Value > 255 or txtIP3.Value > 255_
+	 or txtIP4.Value > 254 or txtIP1.Value < 1 or txtIP2.Value < 0_
+	 or txtIP3.Value < 0 or txtIP4.Value < 0 Then
+		update.innerHTML="IP address is invalid. Please correct." 
+		Exit Sub
+	End If
+		
+
+	strPingAddress=txtIP1.Value & "." & txtIP2.Value & "." &_
+	 txtIP3.Value & "." & txtIP4.Value
+	strTRAddress=txtIP1.Value & "." & txtIP2.Value & "." &_
+	 txtIP3.Value & "." & txtIP4.Value
+
+update.innerHTML="Collecting IP and Network Information.<hr/>"
+	Set objShell = CreateObject("WScript.Shell")
+	iReturn=objShell.Run("%comspec% /C ipconfig /all > " &_
+	  g_strTemp,0,true)
+
+	strHTML=ProcessResults(g_strTemp)
+    output.innerHTML=output.innerHTML &_
+	  Heading("IP Configuration Settings","Green") & strHTML 
+
+update.innerHTML="Checking Network Connection.<hr/>"
+	bNetworkUp = False
+	iReturn=objShell.Run("%comspec% /C ping " & strPingAddress &_
+	 " -n 1 > " & g_strTemp,0,true)
+
+	strHTML=ProcessResults(g_strTemp)
+	If (InStr(strHTML, "Reply")) Then bNetworkUp = True
+	If bNetworkUp Then
+		strHTML= Heading("Network appears to be online.","Green")
+		output.innerHTML= output.innerHTML & strHTML  
+
+update.innerHTML="Performing Ping.<hr/>"
+		iReturn=objShell.Run("%comspec% /C ping " & strPingAddress &_
+	 	 " -n 10 > " & g_strTemp,0,true)
+		strHTML= Heading("Ping Test to " & strPingAddress &_
+		 " : Succeeded","Green")
+
+		strHTML= strHTML & ProcessResults(g_strTemp)
+
+update.innerHTML="Performing Traceroute.<hr/>"
+	iReturn=objShell.Run("%comspec% /C tracert " & strTRAddress &_
+	  " > " & g_strTemp,0,true)
+	strHTML=strHTML & Heading("Trace Route Results","Green") &_
+	 ProcessResults(g_strTemp)
+
+
+	Else
+		strHTML=Heading("Network appears to be offline.","Red")  & strHTML
+	End If
+	output.innerHTML= output.innerHTML & strHTML
+	On Error Goto 0
+End Sub
+
+'---------------------------------------------------------------------
+' Format the Heading
+'---------------------------------------------------------------------
+Function Heading(strHTML, strColor)
+
+Heading = "<br><br><div style=" & chr(34) & "color=" & strColor &_
+ chr(34) & ">" & strHTML & "</div><hr/><br>"
+
+End Function
+
+'---------------------------------------------------------------------
+' Read a text file and iReturn the contents
+'---------------------------------------------------------------------
+Function ProcessResults(strFileName)
+Dim objFSO, objTextFile
+Dim strHTML, strReadLine
+
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+If (objFSO.FileExists(strFileName)) Then
+   Set objTextFile = objFSO.OpenTextFile(strFileName,1)
+   strHTML=""
+	Do While objTextFile.AtEndOfStream <> True
+		strReadLine=objTextFile.ReadLine
+		strHTML=strHTML & strReadLine & "<br>"
+   	Loop
+   	objTextFile.Close
+	objFSO.DeleteFile(strFileName) 
+Else
+	strHTML="Error reading file."
+End If
+
+ProcessResults=strHTML
+
+End Function
+
+
+'---------------------------------------------------------------------
+' save dialog
+'---------------------------------------------------------------------
+Sub SaveResults
+   Dim objFSO
+   Dim strFileName
+   Dim objTextFile
+   
+   Set objFSO = CreateObject("Scripting.FileSystemObject")
+   strFileName = InputBox("Please enter the path to save file"_
+    ,"Save File","c:\DiagnosticsOutput.txt")
+   If strFileName = "" Then Exit Sub
+
+   Set objTextFile = objFSO.CreateTextFile(strFileName)
+   objTextFile.WriteLine output.innerText
+   objTextFile.Close
+
+End Sub
+
+'---------------------------------------------------------------------
+'Quit
+'---------------------------------------------------------------------
+Sub QuitScript
+	On Error Resume Next
+	Set objShell = CreateObject("WScript.Shell")
+	Set objFSO = CreateObject("Scripting.FileSystemObject")
+	objFSO.DeleteFile g_strTemp 
+	Set objFSO = Nothing
+	window.close()
+End Sub
+
+'---------------------------------------------------------------------
+'Format the HTA using standard HTML
+'---------------------------------------------------------------------
+</script>
+</head>
+
+<body>
+
+<table width="100%" height="100%"  class="table">
+
+	<tr height = 50 px>
+	<td align="center" width=150px><b><i>Client Diagnostic Tool</i></b></td>
+	<td width=50px>
+	<input id=cmdRun  class="button" type="button" value="Run"
+	 name="cmdRun" onClick="PerformDiagnostics()"><br>
+	<input id=cmdSave class="button" type="button" value="Save"
+	 name="cmdSave" onClick="SaveResults()"><br>
+	<input id=cmdQuit class="button" type="button" value="Quit"
+	 name="cmdQuit" onClick="QuitScript()"><br>
+	</td>
+	<td width=150px>
+	<input id=chkNet class="button" type="checkbox" CHECKED > 
+	 Do Network Check<br>
+	<input id=chkPC class="button" type="checkbox" CHECKED >
+	 Do PC Check<br>
+	<input id=chkProcess class="button" type="checkbox" >
+	 Do Process Check<br>
+	</td>
+	<td width=* valign=top>
+	Check Network Connection to:<br>
+	IP Address
+	<input id=txtIP1 class="tbox" type="text" MAXLENGTH=3 Value="127">.
+	<input id=txtIP2 class="tbox" type="text" MAXLENGTH=3 Value="0">.
+	<input id=txtIP3 class="tbox" type="text" MAXLENGTH=3 Value="0">.
+	<input id=txtIP4 class="tbox" type="text" MAXLENGTH=3 Value="1">
+	</td>
+	</tr>
+
+	<tr>
+		<td  height = 50 colspan=4 id="update">
+		Select tests and click Run to begin.<hr/></td>
+	</tr>
+
+	<tr>
+		<td height = * colspan=4><div id="output" 
+		style= "width:100%; height:100%; overflow:scroll"></div>
+		</td>
+	</tr>
+
+</table>
+</body>
+</html

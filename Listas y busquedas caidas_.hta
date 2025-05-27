@@ -1,0 +1,210 @@
+<html>
+<head>
+<HTA:APPLICATION ID="2014-03"
+   applicationName="2014-03"
+   version="1.1"
+    BORDER="thin"
+    BORDERSTYLE="static"
+    CAPTION="Yes"
+    CONTEXTMENU="no"
+    ICON="C:\icon\32x32.ico"
+    INNERBORDER="no"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    NAVIGATABLE="no"
+    SCROLL="no"
+    SCROLLFLAT="no"
+    SELECTION="no"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    WINDOWSTATE="normal" 
+>
+
+<!--
+'************************
+'* StyleSheet
+'************************
+-->
+<style>
+BODY
+{
+   background-color: buttonface;
+   font-family: Arial, Helvetica, sans-serif;
+   font-size: 8pt;
+   margin-top: 2px;
+   margin-left: 8px;
+   margin-right: 3px;
+   margin-bottom: 3px;
+}
+.button
+{
+   font-family: Arial, Helvetica, sans-serif;
+   font-size: 8pt;
+   width: 40px;
+}
+textarea
+{
+   background-color: yellow;
+   font-family: Arial;
+   font-size: 8pt;
+   margin-left: 3px;
+   margin-right: 3px;
+}
+</style>
+
+<SCRIPT LANGUAGE="VBScript">
+
+'************************
+'* Global Variables
+'************************
+    Set objFso = CreateObject("Scripting.FileSystemObject")
+    Set objShell = CreateObject("Shell.Application")
+    objPath = ""
+    strHtml = ""
+    Chooser0 = ""
+    Chooser1 = ""
+    Chooser2 = ""
+
+'************************
+'* Window_Onload
+'************************
+Sub Window_Onload
+
+    self.Focus()
+    self.ResizeTo 800,600
+
+    DataArea.InnerHTML = "<textarea cols=122 rows=25></textarea>"
+
+    WindowsLoad
+
+End Sub
+
+
+Sub RunSearch_OnClick()
+    'msgBox "Success!"
+    WindowsLoad
+End Sub 
+
+Sub TestSub
+  If OptionChooser.Value = "0" Then
+    Chooser0 = ""
+  Else
+    For Each objOption in OptionChooser.Options
+        If objOption.Selected Then
+          Chooser0 = objOption.InnerText
+          Exit For
+        End If
+    Next
+  End If
+End Sub
+
+Sub TestSub1
+    For Each objOption in OptionChooser1.Options
+        If objOption.Selected Then
+            Msgbox objOption.InnerText
+        End If
+    Next
+End Sub
+
+Sub TestSub2
+    For Each objOption in OptionChooser2.Options
+        If objOption.Selected Then
+            Msgbox objOption.InnerText
+        End If
+    Next
+End Sub
+
+Sub whichFolder
+  prevPath = objPath
+  Set objFolder = objShell.BrowseForFolder _
+      (0, "Select The Folder To Enumerate :", (0))
+  If objFolder Is Nothing Then
+    msgBox "Bye!"
+    self.Close()
+  Else
+    Set objFolderItem = objFolder.Self
+    objPath = objFolderItem.Path
+  End If
+  If prevPath <> "" then WindowsLoad
+End Sub
+
+Sub WindowsLoad
+  If objPath = "" Then
+    whichFolder
+  End If
+
+  Set objFolder = objFso.GetFolder(objPath)
+
+  Window.Document.Title = "Information For " & objPath & " " & Chooser0
+  strHtml = "<textarea cols=122 rows=25>"
+
+  ShowSubFolders objFolder, Chooser0
+
+  DataArea.InnerHtml = strHtml
+End Sub
+
+Sub ShowSubFolders(fFolder, strExt)
+    'strHtml = strHtml & Chr(10) & fFolder.Path & Chr(10)
+    Set objFolder = objFSO.GetFolder(fFolder.Path)
+    Set colFiles = objFolder.Files
+    For Each objFile in colFiles
+        If strExt = "" OR UCase(strExt) = _
+          "." & UCase(objFSO.GetExtensionName(objFile.name)) Then
+            strHtml = strHtml & objFile.Path & Chr(10)
+        End If
+    Next
+
+    For Each Subfolder in fFolder.SubFolders
+        ShowSubFolders Subfolder, strExt
+    Next
+End Sub
+
+</SCRIPT>
+</head>
+
+<body>
+
+<select id=extension size="1" name="OptionChooser" onChange="TestSub">
+    <option value="0">Selet File Type</option>
+    <option value="1">.txt</option>
+    <option value="2">.pdf</option>
+    <option value="3">.jpg</option>
+    <option value="4">.mp3</option>
+</select>
+
+<select id=year size="1" name="OptionChooser1" onChange="TestSub1">
+    <option value="0">Select Year</option>
+    <option value="1">2014</option>
+    <option value="2">2013</option>
+    <option value="3">2012</option>
+    <option value="3">2011</option>
+    <option value="3">2010</option>
+</select>
+
+<select id=month size="1" name="OptionChooser2" onChange="TestSub2">
+    <option value="0">Select Month</option>
+    <option value="1">01</option>
+    <option value="2">02</option>
+    <option value="3">03</option>
+    <option value="1">04</option>
+    <option value="2">05</option>
+    <option value="3">06</option>
+    <option value="1">07</option>
+    <option value="2">08</option>
+    <option value="3">09</option>
+    <option value="1">10</option>
+    <option value="2">11</option>
+    <option value="3">12</option>
+</select>
+
+<input Type = "button" Value = "Browse For Folder" 
+        Name = "Run_Button" onClick = "whichFolder"><p>
+
+<input type="button" value="Search" name="RunSearch"><p>
+
+<div id="DataArea" name="DataArea"></div>
+
+</body>
+
+</html>

@@ -1,0 +1,117 @@
+<html>
+<head>
+<HTA:APPLICATION ID="2014-03"
+   applicationName="2014-03"
+   version="1.1"
+    BORDER="thin"
+    BORDERSTYLE="static"
+    CAPTION="Yes"
+    CONTEXTMENU="no"
+    ICON="C:\icon\32x32.ico"
+    INNERBORDER="no"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="no"
+    NAVIGATABLE="no"
+    SCROLL="no"
+    SCROLLFLAT="no"
+    SELECTION="no"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    SYSMENU="yes"
+    WINDOWSTATE="normal" 
+>
+
+<SCRIPT LANGUAGE="VBScript">
+
+    Sub RunSearch_OnClick()
+        msgBox "Success!"
+    End Sub 
+
+    Sub TestSub
+        For Each objOption in OptionChooser.Options
+            If objOption.Selected Then
+                Msgbox objOption.InnerText
+            End If
+        Next
+    End Sub
+
+        Sub TestSub1
+        For Each objOption in OptionChooser.Options
+            If objOption.Selected Then
+                Msgbox objOption.InnerText
+            End If
+        Next
+    End Sub
+
+
+    Sub WindowsLoad
+
+    Set objShell = CreateObject("Shell.Application")
+    Set objFolder = objShell.BrowseForFolder (0, "Select The Folder To Enumerate :", (0))
+    If objFolder Is Nothing Then
+    Wscript.Quit
+    Else
+    Set objFolderItem = objFolder.Self
+    objPath = objFolderItem.Path
+    End If
+
+    Set objFso = CreateObject("Scripting.FileSystemObject")
+    Set objFolder = objFso.GetFolder(objPath)
+    For each objFile in objFolder.Files
+    If objFolder.Files.Count > 0 Then
+
+    Window.Document.Title = "Information For " & objPath
+    strHtml = strHtml & "<td><Font color = Blue>" & objFile.Name & "</font></Br>"
+    DataArea.InnerHtml = strHtml
+    End If
+    Next
+    End Sub
+
+</SCRIPT>
+</head>
+
+<body>
+
+
+<select id=extension size="1" name="OptionChooser" onChange="TestSub">
+    <option value="0">Selet File Type</option>
+    <option value="1">.txt</option>
+    <option value="2">.pdf</option>
+    <option value="3">.jpg</option>
+    <option value="4">.mp3</option>
+</select>
+
+<select id=year size="1" name="OptionChooser" onChange="TestSub1">
+    <option value="0">Select Year</option>
+    <option value="1">2014</option>
+    <option value="2">2013</option>
+    <option value="3">2012</option>
+    <option value="3">2011</option>
+    <option value="3">2010</option>
+</select>
+
+<select id=month size="1" name="OptionChooser" onChange="TestSub2">
+    <option value="0">Select Month</option>
+    <option value="1">01</option>
+    <option value="2">02</option>
+    <option value="3">03</option>
+    <option value="1">04</option>
+    <option value="2">05</option>
+    <option value="3">06</option>
+    <option value="1">07</option>
+    <option value="2">08</option>
+    <option value="3">09</option>
+    <option value="1">10</option>
+    <option value="2">11</option>
+    <option value="3">12</option>
+
+</select>
+
+
+
+<input Type = "Button" Value = "Browse For Folder" Name = "Run_Button" onClick = "WindowsLoad"><p></td>
+<input type="button" value="Search" name="RunSearch">
+
+</body>
+
+</html>
